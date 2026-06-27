@@ -6,6 +6,7 @@ import { ArrowLeft, Utensils, Trash2, RefreshCw, CalendarDays, MapPin, Package, 
 import { inventoryApi, type InventoryItem } from "@/features/inventory/infrastructure/inventory.service";
 import { ExpiryBadge } from "@/features/inventory/components/expiry-badge";
 import { StockStatusPill } from "@/features/inventory/components/stock-status-pill";
+import { EditItemDialog } from "@/features/inventory/components/edit-item-dialog";
 import { useTranslate } from "@/lib/i18n-context";
 
 function getExpiryStatus(expiryDate?: string | null): { status: "safe" | "attention" | "urgent" | "expired"; label: string } {
@@ -126,7 +127,7 @@ export default function ItemDetailPage() {
 
         {item.status === "active" && (
           <div className="pt-3 border-t border-border/50 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setConsumeQty(Math.max(0.5, consumeQty - 0.5))}
                 className="size-7 rounded-lg border border-input flex items-center justify-center hover:bg-accent transition-colors"
@@ -149,7 +150,19 @@ export default function ItemDetailPage() {
               <button onClick={handleRestock} disabled={actionLoading} className="inline-flex items-center gap-1.5 px-3 h-7 rounded-lg border border-input text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50">
                 <RefreshCw className="size-3.5" /> +1
               </button>
+              <div className="ml-auto">
+                <EditItemDialog item={item} onUpdated={setItem} />
+              </div>
             </div>
+          </div>
+        )}
+
+        {item.status !== "active" && (
+          <div className="pt-3 border-t border-border/50 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {t("inventory.detail.item_was", { status: item.status })}
+            </p>
+            <EditItemDialog item={item} onUpdated={setItem} />
           </div>
         )}
 

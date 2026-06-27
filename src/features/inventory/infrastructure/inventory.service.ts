@@ -14,6 +14,11 @@ export interface InventoryItem {
   refrigerator_type: string | null;
   quantity: number;
   unit: string | null;
+  low_stock_threshold: number | null;
+  is_low_stock: boolean;
+  expiry_status: string | null;
+  days_left: number | null;
+  priority_score: number;
   purchase_date: string | null;
   expiry_date: string | null;
   opened_date: string | null;
@@ -31,14 +36,21 @@ export interface CreateInventoryInput {
   unit?: string;
   purchase_date?: string;
   expiry_date?: string;
+  low_stock_threshold?: number;
 }
 
 export const inventoryApi = {
-  list: (householdId: string, zoneId?: string, status?: string) => {
+  list: async (householdId: string, zoneId?: string, status?: string) => {
     const params = new URLSearchParams({ household_id: householdId });
     if (zoneId) params.set("zone_id", zoneId);
     if (status) params.set("status", status);
-    return apiRequest<InventoryItem[]>(`/api/inventory-items?${params}`);
+    const data = await apiRequest<{
+      items: InventoryItem[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/api/inventory-items?${params}`);
+    return data.items;
   },
 
   get: (id: string) => apiRequest<InventoryItem>(`/api/inventory-items/${id}`),

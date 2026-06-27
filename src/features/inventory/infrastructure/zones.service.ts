@@ -6,6 +6,7 @@ export interface Zone {
   name: string;
   type: "refrigerator" | "freezer" | "pantry" | "other";
   sort_order: number;
+  refrigerator_id: string | null;
   created_at: string;
 }
 

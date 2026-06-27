@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  House, Archive, Bell, ShoppingCart, Settings, Refrigerator, History, ChefHat,
+  House, Archive, Bell, ShoppingCart, Settings, Refrigerator, History, ChefHat, CalendarClock,
 } from "lucide-react";
 import { useTranslate } from "@/lib/i18n-context";
 
@@ -14,6 +14,7 @@ export function Sidebar() {
   const navItems = [
     { href: "/", label: t("nav.home"), icon: House },
     { href: "/inventory", label: t("nav.inventory"), icon: Archive },
+    { href: "/expiry", label: t("nav.expiry"), icon: CalendarClock },
     { href: "/recipes", label: t("nav.recipes"), icon: ChefHat },
     { href: "/alerts", label: t("nav.alerts"), icon: Bell },
     { href: "/notifications", label: t("nav.notifications"), icon: Bell },

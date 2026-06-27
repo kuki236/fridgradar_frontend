@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Archive, Bell, ShoppingCart, Settings, BellRing, ChefHat } from "lucide-react";
+import { House, Archive, Bell, ShoppingCart, Settings, BellRing, ChefHat, CalendarClock } from "lucide-react";
 import { useTranslate } from "@/lib/i18n-context";
 
 const navItems = [
   { href: "/", key: "home", icon: House },
   { href: "/inventory", key: "inventory", icon: Archive },
+  { href: "/expiry", key: "expiry", icon: CalendarClock },
   { href: "/recipes", key: "recipes", icon: ChefHat },
   { href: "/alerts", key: "alerts", icon: Bell },
-  { href: "/notifications", key: "notifications", icon: BellRing },
   { href: "/shopping", key: "shopping", icon: ShoppingCart },
   { href: "/settings", key: "settings", icon: Settings },
 ];

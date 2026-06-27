@@ -29,6 +29,13 @@ const zoneLabels: Record<string, string> = {
   other: "Other",
 };
 
+const urgencyStyles: Record<string, string> = {
+  expired: "bg-urgent-bg/30 ring-urgent/40 hover:ring-urgent/60",
+  urgent: "bg-urgent-bg/15 ring-urgent/30 hover:ring-urgent/50",
+  attention: "bg-attention-bg/15 ring-attention/30 hover:ring-attention/50",
+  safe: "bg-card ring-foreground/5 hover:ring-primary/20",
+};
+
 function getExpiryStatus(expiryDate?: string): { status: "safe" | "attention" | "urgent" | "expired"; label: string } {
   if (!expiryDate) return { status: "safe", label: "No expiry" };
   const now = new Date();
@@ -49,9 +56,10 @@ interface InventoryItemCardProps {
 export function InventoryItemCard({ item, className }: InventoryItemCardProps) {
   const expiryInfo = getExpiryStatus(item.expiryDate);
   const ZoneIcon = zoneIcons[item.zoneType];
+  const ringClass = urgencyStyles[expiryInfo.status] ?? urgencyStyles.safe;
 
   return (
-    <div className={cn("flex items-center gap-3 p-3 rounded-xl bg-card ring-1 ring-foreground/5 shadow-card hover:shadow-card-hover hover:ring-primary/20 transition-all", className)}>
+    <div className={cn("flex items-center gap-3 p-3 rounded-xl ring-1 shadow-card hover:shadow-card-hover transition-all", ringClass, className)}>
       <div className="size-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0 overflow-hidden">
         {item.imageUrl ? (
           <img src={item.imageUrl} alt="" className="size-full object-cover" />

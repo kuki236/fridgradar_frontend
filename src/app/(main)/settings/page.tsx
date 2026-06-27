@@ -7,6 +7,7 @@ import { useHouseholdStore } from "@/features/household/infrastructure/household
 import { householdApi, type Member } from "@/features/household/infrastructure/households.service";
 import { refrigeratorApi, type Refrigerator } from "@/features/inventory/infrastructure/refrigerators.service";
 import { InviteDialog } from "@/features/household/components/invite-dialog";
+import { ZonesSection } from "@/features/inventory/components/zones-section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -378,6 +379,8 @@ export default function SettingsPage() {
         </section>
 
         <InviteDialog open={inviteOpen} onClose={() => { setInviteOpen(false); loadMembers(); }} />
+
+        <ZonesSection />
       </div>
     </div>
   );

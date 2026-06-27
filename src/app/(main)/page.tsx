@@ -11,6 +11,7 @@ import { inventoryApi, type InventoryItem } from "@/features/inventory/infrastru
 import { alertApi, type Alert } from "@/features/alerts/infrastructure/alerts.service";
 import { shoppingApi, type ShoppingItem } from "@/features/shopping/infrastructure/shopping.service";
 import { activityApi, type ActivityEntry } from "@/features/activity/infrastructure/activity.service";
+import { recipesApi, type Recipe } from "@/features/recipes/infrastructure/recipes.service";
 import { useHouseholdStore } from "@/features/household/infrastructure/households.store";
 import { AddItemDialog } from "@/features/inventory/components/add-item-dialog";
 import { ExpiryBadge } from "@/features/inventory/components/expiry-badge";
@@ -49,32 +50,39 @@ export default function HomePage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [shoppingItems, setShoppingItems] = useState<ShoppingItem[]>([]);
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
-  const [recipes, setRecipes] = useState<any[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { loadHouseholds(); }, []);
 
+  const [dailyRecipe, setDailyRecipe] = useState<Recipe | null>(null);
+  const [dailyLoading, setDailyLoading] = useState(true);
+
   const loadData = useCallback(async () => {
     if (!activeHousehold) return;
     setLoading(true);
+    setDailyLoading(true);
     try {
-      const [its, als, sls, acts, recs] = await Promise.all([
+      const [its, als, sls, acts, recs, daily] = await Promise.all([
         inventoryApi.list(activeHousehold.id).catch(() => [] as InventoryItem[]),
         alertApi.list(activeHousehold.id).catch(() => [] as Alert[]),
         shoppingApi.getCurrent(activeHousehold.id).catch(() => [] as ShoppingItem[]),
         activityApi.list(activeHousehold.id, 10).catch(() => [] as ActivityEntry[]),
-        fetch(`/api/recipes/suggest?household_id=${activeHousehold.id}`)
-          .then((r) => r.ok ? r.json() : [])
-          .then((d) => Array.isArray(d) ? d : d.recipes ?? [])
-          .catch(() => []),
+        recipesApi
+          .suggest(activeHousehold.id)
+          .then((r) => r.recipes ?? [])
+          .catch(() => [] as Recipe[]),
+        recipesApi.daily(activeHousehold.id).catch(() => null),
       ]);
       setItems(its);
       setAlerts(als);
       setShoppingItems(sls);
       setActivityEntries(acts);
+      setDailyRecipe(daily);
       setRecipes(recs.slice(0, 3));
     } catch {}
     setLoading(false);
+    setDailyLoading(false);
   }, [activeHousehold]);
 
   useEffect(() => { if (activeHousehold) loadData(); }, [activeHousehold, loadData]);
@@ -148,6 +156,63 @@ export default function HomePage() {
             </div>
           ) : (
             <>
+              {/* Big "Tengo hambre" CTA (RF-REC-011) */}
+              <Link
+                href="/recipes"
+                className="group block rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-5 shadow-card hover:shadow-card-hover transition-all relative overflow-hidden"
+              >
+                <div className="absolute -right-6 -top-6 size-32 rounded-full bg-primary-foreground/10 blur-2xl" />
+                <div className="relative flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider opacity-80 font-semibold">
+                      {t("recipes.tengo_hambre")}
+                    </p>
+                    <p className="text-base font-semibold mt-0.5">
+                      {t("recipes.tengo_hambre_subtitle")}
+                    </p>
+                    {recipes.length > 0 && (
+                      <p className="text-xs opacity-90 mt-1.5">
+                        {t("recipes.match")} {Math.round(recipes[0].match_pct)}% — {recipes[0].name}
+                      </p>
+                    )}
+                  </div>
+                  <div className="size-12 rounded-xl bg-primary-foreground/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <ChefHat className="size-6" />
+                  </div>
+                </div>
+              </Link>
+
+              {/* Recipe of the day (RF-REC-019) */}
+              {dailyRecipe && (
+                <Link
+                  href="/recipes"
+                  className="group block rounded-xl bg-card ring-1 ring-foreground/5 p-4 shadow-card hover:shadow-card-hover hover:ring-primary/30 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Sparkles className="size-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                          {t("recipes.recipe_of_day")}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold truncate">{dailyRecipe.name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {t("recipes.recipe_of_day_subtitle")}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-lg font-semibold tabular-nums text-primary leading-none">
+                        {Math.round(dailyRecipe.match_pct)}%
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">{t("recipes.match")}</p>
+                    </div>
+                  </div>
+                </Link>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {summaryCards.map((card) => (
                   <Link
