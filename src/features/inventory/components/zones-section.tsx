@@ -107,11 +107,13 @@ export function ZonesSection() {
                 <Label>{t("settings.zone_type")}</Label>
                 <Select value={newType} onValueChange={(v) => v && setNewType(v as typeof ZONE_TYPES[number])}>
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue placeholder={t("settings.zone_type")}>
+                      {(value: string) => t(`type_${value}`)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {ZONE_TYPES.map((tp) => (
-                      <SelectItem key={tp} value={tp} className="capitalize">{tp}</SelectItem>
+                      <SelectItem key={tp} value={tp}>{t(`type_${tp}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -120,7 +122,9 @@ export function ZonesSection() {
                 <Label>{t("settings.zone_fridge")}</Label>
                 <Select value={newFridgeId} onValueChange={(v) => v && setNewFridgeId(v)}>
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue placeholder={t("settings.zone_fridge")}>
+                      {(value: string) => fridges.find((f) => f.id === value)?.name ?? t("settings.zone_fridge")}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {fridges.map((f) => (
@@ -157,7 +161,7 @@ export function ZonesSection() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{z.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      <span className="capitalize">{z.type}</span>
+                      <span>{t(`type_${z.type}`)}</span>
                       {z.refrigerator_id && fridgeNameById.has(z.refrigerator_id) && (
                         <> · {fridgeNameById.get(z.refrigerator_id)}</>
                       )}

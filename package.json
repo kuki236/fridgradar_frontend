@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test:local-products": "node tests/test-local-products.cjs",
+    "test:category-icons": "node tests/test-category-icons.cjs",
+    "test": "npm run test:local-products && npm run test:category-icons"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

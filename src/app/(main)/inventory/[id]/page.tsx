@@ -7,22 +7,14 @@ import { inventoryApi, type InventoryItem } from "@/features/inventory/infrastru
 import { ExpiryBadge } from "@/features/inventory/components/expiry-badge";
 import { StockStatusPill } from "@/features/inventory/components/stock-status-pill";
 import { EditItemDialog } from "@/features/inventory/components/edit-item-dialog";
+import { toBadgeStatus } from "@/features/inventory/lib/expiry-status";
 import { useTranslate } from "@/lib/i18n-context";
 
-function getExpiryStatus(expiryDate?: string | null): { status: "safe" | "attention" | "urgent" | "expired"; label: string } {
-  if (!expiryDate) return { status: "safe", label: "No expiry" };
-  const now = new Date();
-  const exp = new Date(expiryDate);
-  const diffDays = Math.ceil((exp.getTime() - now.getTime()) / 86400000);
-  if (diffDays < 0) return { status: "expired", label: "Expired" };
-  if (diffDays === 0) return { status: "urgent", label: "Today" };
-  if (diffDays <= 3) return { status: "urgent", label: `${diffDays}d left` };
-  if (diffDays <= 7) return { status: "attention", label: `${diffDays}d left` };
-  return { status: "safe", label: `${diffDays}d left` };
-}
-
-const zoneLabels: Record<string, string> = {
-  refrigerator: "Refrigerator", freezer: "Freezer", pantry: "Pantry", other: "Other",
+const zoneLabelKey: Record<string, string> = {
+  refrigerator: "inventory.zone_refrigerator",
+  freezer: "inventory.zone_freezer",
+  pantry: "inventory.zone_pantry",
+  other: "inventory.zone_other",
 };
 
 export default function ItemDetailPage() {
@@ -68,7 +60,7 @@ export default function ItemDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
         <div className="h-5 w-20 rounded bg-muted animate-pulse" />
         <div className="h-48 rounded-xl bg-muted animate-pulse" />
       </div>
@@ -77,10 +69,10 @@ export default function ItemDetailPage() {
 
   if (!item) return null;
 
-  const expiry = getExpiryStatus(item.expiry_date);
+  const expiry = toBadgeStatus(item.expiry_status);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
       <button
         onClick={() => router.back()}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -89,32 +81,32 @@ export default function ItemDetailPage() {
         {t("inventory.detail.back")}
       </button>
 
-      <div className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card p-5 space-y-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-lg font-semibold">{item.product_name}</h1>
+      <div className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card p-6 space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold">{item.product_name}</h1>
             {item.product_category && (
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1.5">
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{item.product_category}</span>
               </div>
             )}
           </div>
-          <StockStatusPill status={item.status as "active" | "consumed" | "discarded" | "low"} />
+          <StockStatusPill status={item.status} isLowStock={item.is_low_stock} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
           <div className="space-y-1">
             <span className="text-xs text-muted-foreground flex items-center gap-1"><Package className="size-3" /> {t("inventory.detail.qty")}</span>
             <p className="text-sm font-medium">{item.quantity} {item.unit}</p>
           </div>
           <div className="space-y-1">
             <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="size-3" /> {t("inventory.detail.zone")}</span>
-            <p className="text-sm font-medium">{zoneLabels[item.zone_type] || item.zone_type}</p>
+            <p className="text-sm font-medium">{t(zoneLabelKey[item.zone_type] || "inventory.zone_other")}</p>
           </div>
           <div className="space-y-1">
             <span className="text-xs text-muted-foreground flex items-center gap-1"><CalendarDays className="size-3" /> {t("inventory.detail.expiry")}</span>
             <div className="mt-1">
-              <ExpiryBadge status={expiry.status} date={item.expiry_date!} />
+              <ExpiryBadge status={expiry} date={item.expiry_date!} />
             </div>
           </div>
           <div className="space-y-1">
@@ -125,8 +117,8 @@ export default function ItemDetailPage() {
           </div>
         </div>
 
-        {item.status === "active" && (
-          <div className="pt-3 border-t border-border/50 space-y-3">
+        {item.status === "active" ? (
+          <div className="pt-4 border-t border-border/50 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setConsumeQty(Math.max(0.5, consumeQty - 0.5))}
@@ -155,22 +147,12 @@ export default function ItemDetailPage() {
               </div>
             </div>
           </div>
-        )}
-
-        {item.status !== "active" && (
-          <div className="pt-3 border-t border-border/50 flex items-center justify-between">
+        ) : (
+          <div className="pt-4 border-t border-border/50 flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
-              {t("inventory.detail.item_was", { status: item.status })}
+              {t("inventory.detail.item_was", { status: t(`inventory.detail.status_${item.status}_label`) })}
             </p>
             <EditItemDialog item={item} onUpdated={setItem} />
-          </div>
-        )}
-
-        {item.status !== "active" && (
-          <div className="pt-3 border-t border-border/50">
-            <p className="text-xs text-muted-foreground">
-              {t("inventory.detail.item_was", { status: item.status })}
-            </p>
           </div>
         )}
       </div>

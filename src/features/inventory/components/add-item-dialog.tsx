@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Loader2, Search, ImageOff } from "lucide-react";
+import { Plus, Loader2, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,19 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inventoryApi } from "@/features/inventory/infrastructure/inventory.service";
 import { zoneApi, type Zone } from "@/features/inventory/infrastructure/zones.service";
-import { productsApi, type ProductSearchResult } from "@/features/inventory/infrastructure/products.service";
+import { refrigeratorApi, type Refrigerator } from "@/features/inventory/infrastructure/refrigerators.service";
+import { searchLocalProducts, type LocalProduct } from "@/features/inventory/lib/local-products";
 import { useHouseholdStore } from "@/features/household/infrastructure/households.store";
 import { useTranslate } from "@/lib/i18n-context";
+import { CategoryIcon } from "@/features/inventory/components/category-icon";
 
 interface AddItemDialogProps {
   onAdded: () => void;
 }
 
 const CATEGORIES = [
-  "Dairy", "Meat", "Poultry", "Fish", "Vegetables", "Fruits", "Grains",
-  "Pasta", "Bread", "Condiments", "Oils", "Sauces", "Spices", "Herbs",
-  "Beverages", "Snacks", "Frozen", "Canned", "Bakery", "Dairy Alternatives",
-  "Prepared Foods", "Baby", "Pet", "Other",
+  "Lácteos", "Carne", "Aves", "Pescado", "Verduras", "Frutas", "Granos",
+  "Pasta", "Pan", "Condimentos", "Aceites", "Salsas", "Especias", "Hierbas",
+  "Bebidas", "Botanas", "Congelados", "Enlatados", "Panadería",
+  "Alternativas Lácteas", "Comidas Preparadas", "Bebé", "Mascotas", "Otros",
 ];
 
 const UNITS = ["kg", "g", "lt", "ml", "units", "tbsp", "tsp", "cup", "oz", "lb"];
@@ -31,33 +33,36 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
   const { activeHousehold } = useHouseholdStore();
   const [open, setOpen] = useState(false);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [fridges, setFridges] = useState<Refrigerator[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState<ProductSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [results, setResults] = useState<LocalProduct[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ProductSearchResult | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<LocalProduct | null>(null);
 
   const [category, setCategory] = useState("Other");
   const [zoneId, setZoneId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [lowStockThreshold, setLowStockThreshold] = useState("");
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (open && activeHousehold) {
-      zoneApi.list(activeHousehold.id).then((zs) => {
-        setZones(zs);
-        if (!zoneId && zs.length > 0) setZoneId(zs[0].id);
-      }).catch(() => {});
+      Promise.all([
+        zoneApi.list(activeHousehold.id),
+        refrigeratorApi.list(activeHousehold.id),
+      ])
+        .then(([zs, fs]) => {
+          setZones(zs);
+          setFridges(fs);
+          if (!zoneId && zs.length > 0) setZoneId(zs[0].id);
+        })
+        .catch(() => {});
     }
   }, [open, activeHousehold]);
 
@@ -71,41 +76,25 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Local catalog search (replaces the old Open Food Facts call). Instant,
+  // offline, and the catalog is bundled with the app.
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!searchTerm.trim()) {
+    if (!searchTerm.trim() || selectedProduct) {
       setResults([]);
-      setSearched(false);
-      setSearching(false);
       return;
     }
-    setSearched(false);
-    setSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const products = await productsApi.search(searchTerm);
-        setResults(products);
-        setSearched(true);
-      } catch {
-        setResults([]);
-        setSearched(true);
-      }
-      setSearching(false);
-    }, 500);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchTerm]);
+    setResults(searchLocalProducts(searchTerm));
+  }, [searchTerm, selectedProduct]);
 
   useEffect(() => {
     setShowDropdown(searchTerm.trim().length > 0 && !selectedProduct);
   }, [searchTerm, selectedProduct]);
 
-  function handleSelectProduct(product: ProductSearchResult) {
+  function handleSelectProduct(product: LocalProduct) {
     setSelectedProduct(product);
     setSearchTerm(product.name);
     setCategory(product.category || "Other");
-    setImageUrl(product.image_url);
+    setUnit(product.unit || "");
     setShowDropdown(false);
   }
 
@@ -113,9 +102,8 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
     setSelectedProduct(null);
     setSearchTerm("");
     setCategory("Other");
-    setImageUrl(null);
+    setUnit("");
     setResults([]);
-    setSearched(false);
     inputRef.current?.focus();
   }
 
@@ -125,10 +113,8 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
     setQuantity("1");
     setUnit("");
     setExpiryDate("");
-    setImageUrl(null);
     setSelectedProduct(null);
     setResults([]);
-    setSearched(false);
     setLowStockThreshold("");
   }
 
@@ -141,7 +127,6 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
         household_id: activeHousehold.id,
         product_name: searchTerm.trim(),
         product_category: category,
-        image_url: imageUrl || undefined,
         zone_id: zoneId,
         quantity: Number(quantity) || 1,
         unit: unit || undefined,
@@ -184,49 +169,35 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
                     autoComplete="off"
                   />
                 </div>
-                <div className="size-14 shrink-0 rounded-lg border flex items-center justify-center overflow-hidden bg-muted/30">
-                  {imageUrl ? (
-                    <img src={imageUrl} alt="" className="size-full object-cover" />
-                  ) : (
-                    <ImageOff className="size-4 text-muted-foreground" />
-                  )}
+                <div className="size-14 shrink-0 rounded-lg border flex items-center justify-center overflow-hidden">
+                  <CategoryIcon category={category} size="lg" />
                 </div>
               </div>
               {showDropdown && (
                 <div className="absolute top-full mt-1 left-0 right-14 z-30 bg-popover border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {searching ? (
-                    <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-                      <Loader2 className="size-3.5 animate-spin" />
-                      {t("inventory.loading")}
-                    </div>
-                  ) : results.length > 0 ? (
-                    results.map((product, idx) => (
+                  {results.length > 0 ? (
+                    results.map((product) => (
                       <button
-                        key={`${product.barcode ?? "nobarcode"}-${idx}`}
+                        key={product.name}
                         type="button"
                         onClick={() => handleSelectProduct(product)}
                         className="flex items-center gap-3 w-full px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
                       >
-                        <div className="size-8 rounded border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                          {product.image_url ? (
-                            <img src={product.image_url} alt="" className="size-full object-cover" />
-                          ) : (
-                            <ImageOff className="size-3.5 text-muted-foreground" />
-                          )}
+                        <div className="shrink-0">
+                          <CategoryIcon category={product.category} size="sm" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{product.category ?? "—"}</p>
+                          <p className="text-xs text-muted-foreground">{product.category}</p>
                         </div>
                       </button>
                     ))
-                  ) : searched ? (
+                  ) : (
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedProduct(null);
                         setCategory("Other");
-                        setImageUrl(null);
                         setShowDropdown(false);
                       }}
                       className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
@@ -234,7 +205,7 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
                       <Plus className="size-3.5" />
                       {t("inventory.custom_product", { name: searchTerm })}
                     </button>
-                  ) : null}
+                  )}
                 </div>
               )}
             </div>
@@ -257,7 +228,9 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
               <Label>{t("inventory.zone")}</Label>
               <Select value={zoneId} onValueChange={(v) => v && setZoneId(v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue placeholder={t("inventory.zone")}>
+                    {(value: string) => zones.find((zone) => zone.id === value)?.name ?? t("inventory.zone")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {zones.length === 0 && (
@@ -265,9 +238,21 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
                       {t("inventory.no_zones")}
                     </div>
                   )}
-                  {zones.map((z) => (
-                    <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
-                  ))}
+                  {zones.map((z) => {
+                    const f = fridges.find((fr) => fr.id === z.refrigerator_id);
+                    return (
+                      <SelectItem key={z.id} value={z.id}>
+                        <span className="flex flex-col">
+                          <span>{z.name}</span>
+                          {f && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {f.name}
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -279,7 +264,7 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
                 id="qty"
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.5"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
               />
@@ -314,7 +299,7 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
                 id="threshold"
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.5"
                 value={lowStockThreshold}
                 onChange={(e) => setLowStockThreshold(e.target.value)}
                 placeholder="1.0"

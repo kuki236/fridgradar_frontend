@@ -319,13 +319,15 @@ export default function SettingsPage() {
                     <Label>{t("settings.fridge_type")}</Label>
                     <Select value={newFridgeType} onValueChange={(v) => v && setNewFridgeType(v)}>
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue placeholder={t("settings.fridge_type")}>
+                          {(value: string) => t(`type_${value}`)}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="refrigerator">Refrigerator</SelectItem>
-                        <SelectItem value="freezer">Freezer</SelectItem>
-                        <SelectItem value="pantry">Pantry</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="refrigerator">{t("type_refrigerator")}</SelectItem>
+                        <SelectItem value="freezer">{t("type_freezer")}</SelectItem>
+                        <SelectItem value="pantry">{t("type_pantry")}</SelectItem>
+                        <SelectItem value="other">{t("type_other")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -356,7 +358,7 @@ export default function SettingsPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{fridge.name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{fridge.type}</p>
+                        <p className="text-xs text-muted-foreground">{t(`type_${fridge.type}`)}</p>
                       </div>
                     </div>
                     <button

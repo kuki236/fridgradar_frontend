@@ -28,7 +28,16 @@ function severityCount(alerts: Alert[], severity: string) {
 
 function daysUntil(iso: string | null): number | null {
   if (!iso) return null;
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+  // Compare local calendar days, not timestamps. The backend stores `due_at`
+  // as midnight UTC of the expiry date, but it buckets expiry status by
+  // calendar day (e.g. "today" means expiry_date == today, regardless of hour).
+  // Mixing UTC timestamps with `Date.now()` (local) would give a wrong day
+  // count for users west of UTC during their afternoon.
+  const due = new Date(iso);
+  const now = new Date();
+  const dueMidnight = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.round((dueMidnight - nowMidnight) / 86400000);
 }
 
 export default function AlertsPage() {
@@ -40,14 +49,42 @@ export default function AlertsPage() {
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
   const [snoozingId, setSnoozingId] = useState<string | null>(null);
+  const [snoozeOpenId, setSnoozeOpenId] = useState<string | null>(null);
 
   const loadAlerts = useCallback(() => {
     if (!activeHousehold) return;
     setLoading(true);
-    alertApi.list(activeHousehold.id, filter || undefined).then(setAlerts).catch(() => {}).finally(() => setLoading(false));
-  }, [activeHousehold, filter]);
+    // Traemos TODOS los alerts (sin filter server-side) para que los chips
+    // de "Críticas/Advertencias/Información" muestren conteos correctos sin
+    // importar qué filtro esté activo. El filtrado visible es en cliente.
+    alertApi.list(activeHousehold.id).then(setAlerts).catch(() => {}).finally(() => setLoading(false));
+  }, [activeHousehold]);
 
   useEffect(() => { loadAlerts(); }, [loadAlerts]);
+
+  // Cierra el menú de snooze cuando hacés click afuera o presionás Escape.
+  useEffect(() => {
+    if (!snoozeOpenId) return;
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-snooze-root]")) {
+        setSnoozeOpenId(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSnoozeOpenId(null);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [snoozeOpenId]);
+
+  const visibleAlerts = filter
+    ? alerts.filter((a) => a.severity === filter)
+    : alerts;
 
   const handleMarkRead = async (id: string) => {
     await alertApi.markRead(id);
@@ -56,6 +93,7 @@ export default function AlertsPage() {
 
   const handleSnooze = async (id: string, hours: number) => {
     setSnoozingId(id);
+    setSnoozeOpenId(null);
     try {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/alerts/${id}/snooze`, {
         method: "POST",
@@ -144,9 +182,13 @@ export default function AlertsPage() {
             <p className="text-sm font-medium">{t("alerts.all_clear")}</p>
             <p className="text-xs text-muted-foreground mt-1">{t("alerts.no_alerts")}</p>
           </div>
+        ) : visibleAlerts.length === 0 ? (
+          <div className="text-center py-20 text-sm text-muted-foreground">
+            {t("alerts.no_alerts")}
+          </div>
         ) : (
           <div className="space-y-2">
-            {alerts.map((alert) => {
+            {visibleAlerts.map((alert) => {
               const cfg = severityConfig[alert.severity] || severityConfig.info;
               const TypeIcon = typeIcons[alert.type] || Bell;
               const due = daysUntil(alert.due_at);
@@ -184,27 +226,44 @@ export default function AlertsPage() {
                           <Eye className="size-3.5" />
                         </button>
                       </div>
-                      <div className="relative group/snooze">
+                      <div className="relative" data-snooze-root>
                         <button
-                          onClick={() => handleSnooze(alert.id, 24)}
+                          type="button"
+                          aria-haspopup="menu"
+                          aria-expanded={snoozeOpenId === alert.id}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSnoozeOpenId(snoozeOpenId === alert.id ? null : alert.id);
+                          }}
                           disabled={snoozingId === alert.id}
                           className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                           title={t("alerts.snooze")}
                         >
                           {snoozingId === alert.id ? <Loader2 className="size-3.5 animate-spin" /> : <Clock className="size-3.5" />}
                         </button>
-                        <div className="absolute right-0 top-full mt-1 z-20 hidden group-hover/snooze:flex group-focus-within/snooze:flex flex-col bg-popover ring-1 ring-foreground/10 rounded-lg shadow-lg py-1 min-w-[8rem]">
-                          {[24, 72, 168].map((hours) => (
-                            <button
-                              key={hours}
-                              type="button"
-                              onClick={() => handleSnooze(alert.id, hours)}
-                              className="px-3 py-1.5 text-xs text-left hover:bg-accent transition-colors"
-                            >
-                              {hours === 24 ? t("alerts.snooze_24h") : hours === 72 ? t("alerts.snooze_3d") : t("alerts.snooze_1w")}
-                            </button>
-                          ))}
-                        </div>
+                        {snoozeOpenId === alert.id && (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-full mt-1 z-20 flex flex-col bg-popover ring-1 ring-foreground/10 rounded-lg shadow-lg py-1 min-w-[8rem]"
+                          >
+                            {[24, 72, 168].map((hours) => (
+                              <button
+                                key={hours}
+                                type="button"
+                                role="menuitem"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleSnooze(alert.id, hours);
+                                }}
+                                className="px-3 py-1.5 text-xs text-left hover:bg-accent transition-colors"
+                              >
+                                {hours === 24 ? t("alerts.snooze_24h") : hours === 72 ? t("alerts.snooze_3d") : t("alerts.snooze_1w")}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

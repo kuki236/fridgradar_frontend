@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pencil } from "lucide-react";
 import { inventoryApi, type InventoryItem } from "@/features/inventory/infrastructure/inventory.service";
 import { zoneApi, type Zone } from "@/features/inventory/infrastructure/zones.service";
+import { refrigeratorApi, type Refrigerator } from "@/features/inventory/infrastructure/refrigerators.service";
 import { useHouseholdStore } from "@/features/household/infrastructure/households.store";
 import { useTranslate } from "@/lib/i18n-context";
 
@@ -25,6 +26,7 @@ export function EditItemDialog({ item, onUpdated }: EditItemDialogProps) {
   const { activeHousehold } = useHouseholdStore();
   const [open, setOpen] = useState(false);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [fridges, setFridges] = useState<Refrigerator[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [zoneId, setZoneId] = useState(item.zone_id);
@@ -37,7 +39,15 @@ export function EditItemDialog({ item, onUpdated }: EditItemDialogProps) {
 
   useEffect(() => {
     if (open && activeHousehold) {
-      zoneApi.list(activeHousehold.id).then(setZones).catch(() => {});
+      Promise.all([
+        zoneApi.list(activeHousehold.id),
+        refrigeratorApi.list(activeHousehold.id),
+      ])
+        .then(([zs, fs]) => {
+          setZones(zs);
+          setFridges(fs);
+        })
+        .catch(() => {});
     }
   }, [open, activeHousehold]);
 
@@ -88,7 +98,9 @@ export function EditItemDialog({ item, onUpdated }: EditItemDialogProps) {
             <Label>{t("inventory.zone")}</Label>
             <Select value={zoneId} onValueChange={(v) => v && setZoneId(v)}>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue placeholder={t("inventory.zone")}>
+                  {(value: string) => zones.find((z) => z.id === value)?.name ?? t("inventory.zone")}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {zones.map((z) => (
@@ -104,7 +116,7 @@ export function EditItemDialog({ item, onUpdated }: EditItemDialogProps) {
                 id="edit-qty"
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.5"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
               />
@@ -139,7 +151,7 @@ export function EditItemDialog({ item, onUpdated }: EditItemDialogProps) {
                 id="edit-threshold"
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.5"
                 value={lowStockThreshold}
                 onChange={(e) => setLowStockThreshold(e.target.value)}
                 placeholder="1.0"

@@ -219,6 +219,10 @@ export default function ExpiryPage() {
             </div>
           ) : !data ? (
             <div className="text-center py-20 text-sm text-muted-foreground">—</div>
+          ) : data.summary.total === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              {t("expiry.empty")}
+            </div>
           ) : (
             <>
               {data.timeline.length > 0 && <MiniCalendar days={data.timeline} />}
@@ -239,12 +243,6 @@ export default function ExpiryPage() {
                   );
                 })}
               </div>
-
-              {data.summary.total === 0 && (
-                <div className="text-center py-12 text-sm text-muted-foreground">
-                  {t("expiry.empty")}
-                </div>
-              )}
             </>
           )}
         </div>

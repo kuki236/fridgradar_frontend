@@ -1,33 +1,43 @@
-import { Snowflake, Refrigerator, Box, CalendarDays, ImageOff } from "lucide-react";
+import { Snowflake, Refrigerator, Box, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslate } from "@/lib/i18n-context";
 import { ExpiryBadge } from "@/features/inventory/components/expiry-badge";
 import { StockStatusPill } from "@/features/inventory/components/stock-status-pill";
+import { CategoryIcon } from "@/features/inventory/components/category-icon";
+import { toBadgeStatus } from "@/features/inventory/lib/expiry-status";
+import type { InventoryItemStatus } from "@/features/inventory/infrastructure/inventory.service";
 
-type InventoryItem = {
+type LocalInventoryItem = {
   id: string;
   productName: string;
-  category?: string;
-  imageUrl?: string;
+  category?: string | null;
   quantity: number;
   unit?: string;
   expiryDate?: string;
+  expiryStatus?: string | null;
   zoneType: "refrigerator" | "freezer" | "pantry" | "other";
-  status: "active" | "consumed" | "discarded" | "low";
+  status: InventoryItemStatus;
+  isLowStock: boolean;
 };
 
-const zoneIcons = {
+const zoneIcons: Record<LocalInventoryItem["zoneType"], typeof Refrigerator> = {
   refrigerator: Refrigerator,
   freezer: Snowflake,
   pantry: Box,
   other: Box,
 };
 
-const zoneLabels: Record<string, string> = {
-  refrigerator: "Fridge",
-  freezer: "Freezer",
-  pantry: "Pantry",
-  other: "Other",
+const zoneLabelKey: Record<LocalInventoryItem["zoneType"], string> = {
+  refrigerator: "inventory.zone_refrigerator",
+  freezer: "inventory.zone_freezer",
+  pantry: "inventory.zone_pantry",
+  other: "inventory.zone_other",
 };
+
+interface InventoryItemCardProps {
+  item: LocalInventoryItem;
+  className?: string;
+}
 
 const urgencyStyles: Record<string, string> = {
   expired: "bg-urgent-bg/30 ring-urgent/40 hover:ring-urgent/60",
@@ -36,37 +46,15 @@ const urgencyStyles: Record<string, string> = {
   safe: "bg-card ring-foreground/5 hover:ring-primary/20",
 };
 
-function getExpiryStatus(expiryDate?: string): { status: "safe" | "attention" | "urgent" | "expired"; label: string } {
-  if (!expiryDate) return { status: "safe", label: "No expiry" };
-  const now = new Date();
-  const exp = new Date(expiryDate);
-  const diffDays = Math.ceil((exp.getTime() - now.getTime()) / 86400000);
-  if (diffDays < 0) return { status: "expired", label: "Expired" };
-  if (diffDays === 0) return { status: "urgent", label: "Today" };
-  if (diffDays <= 3) return { status: "urgent", label: `${diffDays}d` };
-  if (diffDays <= 7) return { status: "attention", label: `${diffDays}d` };
-  return { status: "safe", label: `${diffDays}d` };
-}
-
-interface InventoryItemCardProps {
-  item: InventoryItem;
-  className?: string;
-}
-
 export function InventoryItemCard({ item, className }: InventoryItemCardProps) {
-  const expiryInfo = getExpiryStatus(item.expiryDate);
+  const { t } = useTranslate();
+  const badgeStatus = toBadgeStatus(item.expiryStatus);
   const ZoneIcon = zoneIcons[item.zoneType];
-  const ringClass = urgencyStyles[expiryInfo.status] ?? urgencyStyles.safe;
+  const ringClass = urgencyStyles[badgeStatus] ?? urgencyStyles.safe;
 
   return (
     <div className={cn("flex items-center gap-3 p-3 rounded-xl ring-1 shadow-card hover:shadow-card-hover transition-all", ringClass, className)}>
-      <div className="size-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0 overflow-hidden">
-        {item.imageUrl ? (
-          <img src={item.imageUrl} alt="" className="size-full object-cover" />
-        ) : (
-          <ZoneIcon className="size-4.5 text-primary" />
-        )}
-      </div>
+      <CategoryIcon category={item.category} size="md" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium truncate">{item.productName}</p>
@@ -79,7 +67,7 @@ export function InventoryItemCard({ item, className }: InventoryItemCardProps) {
           <span className="text-xs text-muted-foreground/50">&middot;</span>
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <ZoneIcon className="size-3" />
-            {zoneLabels[item.zoneType] || item.zoneType}
+            {t(zoneLabelKey[item.zoneType])}
           </span>
           {item.expiryDate && (
             <>
@@ -90,10 +78,10 @@ export function InventoryItemCard({ item, className }: InventoryItemCardProps) {
         </div>
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">
-        {expiryInfo.label !== "No expiry" && (
-          <ExpiryBadge status={expiryInfo.status} label={expiryInfo.label} />
+        {item.expiryDate && (
+          <ExpiryBadge status={badgeStatus} date={item.expiryDate} />
         )}
-        <StockStatusPill status={item.status} />
+        <StockStatusPill status={item.status} isLowStock={item.isLowStock} />
       </div>
     </div>
   );

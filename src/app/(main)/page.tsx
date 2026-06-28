@@ -18,18 +18,11 @@ import { ExpiryBadge } from "@/features/inventory/components/expiry-badge";
 import { NoHouseholdGuard } from "@/features/household/components/no-household-guard";
 import { useTranslate } from "@/lib/i18n-context";
 import { cn } from "@/lib/utils";
+import { toBadgeStatus } from "@/features/inventory/lib/expiry-status";
 
 function daysUntil(date: string): number {
   const diff = new Date(date).getTime() - Date.now();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function statusForExpiry(date: string | null): "safe" | "attention" | "urgent" {
-  if (!date) return "safe";
-  const d = daysUntil(date);
-  if (d <= 0) return "urgent";
-  if (d <= 3) return "attention";
-  return "safe";
 }
 
 function timeAgo(date: string, t: (key: string, params?: Record<string, string | number>) => string): string {
@@ -266,9 +259,9 @@ export default function HomePage() {
                         <Refrigerator className="size-4 text-primary" />
                         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("home.inventory")}</span>
                       </div>
-                      <div className="text-lg font-semibold">{activeItems.length} items</div>
+                      <div className="text-lg font-semibold">{activeItems.length} {t("home.items")}</div>
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {["Dairy", "Vegetables", "Meat", "Fruits"].map((cat) => {
+                        {["Lácteos", "Verduras", "Carne", "Frutas"].map((cat) => {
                           const count = activeItems.filter((i) => i.product_category === cat).length;
                           if (count === 0) return null;
                           return (
@@ -287,7 +280,7 @@ export default function HomePage() {
                         <ShoppingCart className="size-4 text-info" />
                         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("home.shopping_list")}</span>
                       </div>
-                      <div className="text-lg font-semibold">{uncheckedShopping.length} items</div>
+                      <div className="text-lg font-semibold">{uncheckedShopping.length} {t("home.items")}</div>
                       <div className="mt-2 space-y-1">
                         {uncheckedShopping.slice(0, 4).map((item) => (
                           <div key={item.id} className="flex items-center gap-2">
@@ -350,12 +343,12 @@ export default function HomePage() {
                   <div className="rounded-xl bg-card ring-1 ring-foreground/5 divide-y shadow-card overflow-hidden">
                     {expiringSoon.slice(0, 5).map((item) => (
                       <Link key={item.id} href={`/inventory/${item.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors group">
-                        <div className={cn("size-2 rounded-full shrink-0", statusForExpiry(item.expiry_date) === "urgent" ? "bg-urgent" : "bg-attention")} />
+                        <div className={cn("size-2 rounded-full shrink-0", toBadgeStatus(item.expiry_status) === "urgent" || toBadgeStatus(item.expiry_status) === "expired" ? "bg-urgent" : "bg-attention")} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.product_name}</p>
                           <p className="text-xs text-muted-foreground">{item.quantity} {item.unit} &middot; {item.zone_name}</p>
                         </div>
-                        <ExpiryBadge status={statusForExpiry(item.expiry_date)} date={item.expiry_date!} />
+                        <ExpiryBadge status={toBadgeStatus(item.expiry_status)} date={item.expiry_date!} />
                       </Link>
                     ))}
                   </div>
@@ -371,12 +364,12 @@ export default function HomePage() {
                   <div className="rounded-xl bg-card ring-1 ring-foreground/5 divide-y shadow-card overflow-hidden">
                     {expiringThisWeek.slice(0, 5).map((item) => (
                       <Link key={item.id} href={`/inventory/${item.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors group">
-                        <div className={cn("size-2 rounded-full shrink-0", statusForExpiry(item.expiry_date) === "urgent" ? "bg-urgent" : statusForExpiry(item.expiry_date) === "attention" ? "bg-attention" : "bg-safe")} />
+                        <div className={cn("size-2 rounded-full shrink-0", toBadgeStatus(item.expiry_status) === "urgent" || toBadgeStatus(item.expiry_status) === "expired" ? "bg-urgent" : toBadgeStatus(item.expiry_status) === "attention" ? "bg-attention" : "bg-safe")} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.product_name}</p>
                           <p className="text-xs text-muted-foreground">{item.quantity} {item.unit}</p>
                         </div>
-                        <ExpiryBadge status={statusForExpiry(item.expiry_date)} date={item.expiry_date!} />
+                        <ExpiryBadge status={toBadgeStatus(item.expiry_status)} date={item.expiry_date!} />
                       </Link>
                     ))}
                   </div>

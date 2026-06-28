@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { authApi, type UserResponse } from "@/features/auth/infrastructure/auth.service";
+import { AUTH_LOGOUT_EVENT } from "@/lib/api";
 
 interface AuthState {
   user: UserResponse | null;
@@ -11,6 +12,16 @@ interface AuthState {
   register: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+}
+
+// Listener instalado a nivel de módulo: si el token expira y la lib/api
+// no logra refrescarlo, dispara el evento y el store se limpia. El
+// AuthProvider detecta isAuthenticated=false y redirige a /login.
+if (typeof window !== "undefined") {
+  window.addEventListener(AUTH_LOGOUT_EVENT, () => {
+    const store = useAuthStore.getState();
+    store.logout();
+  });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({

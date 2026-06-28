@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Snowflake, Refrigerator as FridgeIcon, Box, ImageOff, GripVertical, Loader2 } from "lucide-react";
+import { Snowflake, Refrigerator as FridgeIcon, Box, GripVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslate } from "@/lib/i18n-context";
 import { ExpiryBadge } from "@/features/inventory/components/expiry-badge";
+import { CategoryIcon } from "@/features/inventory/components/category-icon";
 import { inventoryApi, type InventoryItem } from "@/features/inventory/infrastructure/inventory.service";
-import { refrigeratorApi, type Refrigerator } from "@/features/inventory/infrastructure/refrigerators.service";
-import { zoneApi, type Zone } from "@/features/inventory/infrastructure/zones.service";
+import type { Refrigerator } from "@/features/inventory/infrastructure/refrigerators.service";
+import type { Zone } from "@/features/inventory/infrastructure/zones.service";
+import { toBadgeStatus } from "@/features/inventory/lib/expiry-status";
 
 interface FridgeViewProps {
   refrigerators: Refrigerator[];
@@ -31,18 +33,9 @@ const TYPE_LABEL_KEYS = {
   other: "inventory.zone",
 };
 
-function getExpiryStatus(dateStr?: string | null): "safe" | "attention" | "urgent" | "expired" {
-  if (!dateStr) return "safe";
-  const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
-  if (diff < 0) return "expired";
-  if (diff <= 3) return "urgent";
-  if (diff <= 7) return "attention";
-  return "safe";
-}
-
 function ItemCard({ item, onDragStart }: { item: InventoryItem; onDragStart: (e: React.DragEvent, id: string) => void }) {
   const { t } = useTranslate();
-  const expiry = getExpiryStatus(item.expiry_date);
+  const expiry = toBadgeStatus(item.expiry_status);
   return (
     <Link
       href={`/inventory/${item.id}`}
@@ -51,12 +44,8 @@ function ItemCard({ item, onDragStart }: { item: InventoryItem; onDragStart: (e:
       className="group flex items-center gap-2 p-2 rounded-lg bg-card ring-1 ring-foreground/5 hover:ring-primary/30 hover:shadow-sm cursor-grab active:cursor-grabbing transition-all"
     >
       <GripVertical className="size-3 text-muted-foreground/30 group-hover:text-muted-foreground/60 shrink-0" />
-      <div className="size-8 rounded bg-muted/50 flex items-center justify-center overflow-hidden shrink-0">
-        {item.image_url ? (
-          <img src={item.image_url} alt="" className="size-full object-cover" />
-        ) : (
-          <ImageOff className="size-3.5 text-muted-foreground/60" />
-        )}
+      <div className="shrink-0">
+        <CategoryIcon category={item.product_category} size="sm" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium truncate">{item.product_name}</p>
@@ -148,14 +137,42 @@ export function FridgeView({ refrigerators, zones, items, onMoved }: FridgeViewP
     setActiveDropZone(null);
     const item = items.find((it) => it.id === itemId);
     if (!item || item.zone_id === zoneId) return;
+
+    const previousZoneId = item.zone_id;
+    const previousZoneName = item.zone_name;
+    const previousZoneType = item.zone_type;
+    const previousRefrigeratorName = item.refrigerator_name;
+    const previousRefrigeratorType = item.refrigerator_type;
+    const targetZone = zones.find((z) => z.id === zoneId);
+    if (!targetZone) return;
+
     setSavingZone(zoneId);
+
+    onMoved({
+      ...item,
+      zone_id: targetZone.id,
+      zone_name: targetZone.name,
+      zone_type: targetZone.type,
+      refrigerator_id: targetZone.refrigerator_id ?? null,
+      refrigerator_name: null,
+      refrigerator_type: null,
+    });
+
     try {
       const updated = await inventoryApi.update(itemId, { zone_id: zoneId });
       onMoved(updated);
     } catch {
-      // error handled silently
+      onMoved({
+        ...item,
+        zone_id: previousZoneId,
+        zone_name: previousZoneName,
+        zone_type: previousZoneType,
+        refrigerator_name: previousRefrigeratorName,
+        refrigerator_type: previousRefrigeratorType,
+      });
+    } finally {
+      setSavingZone(null);
     }
-    setSavingZone(null);
   };
 
   const handleGlobalDragOver = (e: React.DragEvent) => {

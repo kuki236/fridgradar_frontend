@@ -35,15 +35,20 @@ export default function InventoryPage() {
     }
   }, [activeHousehold]);
 
+  // Always fetch the full household inventory. The fridge filter is applied
+  // client-side using `item.refrigerator_id` (already returned by the backend).
+  // The previous implementation sent the refrigerator id as `zone_id` to the
+  // API, which silently returned an empty list because no inventory item has
+  // a zone_id equal to a refrigerator id.
   const loadItems = useCallback(() => {
     if (!activeHousehold) return;
     setLoading(true);
     inventoryApi
-      .list(activeHousehold.id, activeFridgeId || undefined)
+      .list(activeHousehold.id)
       .then(setItems)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [activeHousehold, activeFridgeId]);
+  }, [activeHousehold]);
 
   useEffect(() => { loadItems(); }, [loadItems]);
 
@@ -54,6 +59,9 @@ export default function InventoryPage() {
   const filtered = items
     .filter((item) =>
       item.product_name.toLowerCase().includes(search.toLowerCase()),
+    )
+    .filter((item) =>
+      activeFridgeId ? item.refrigerator_id === activeFridgeId : true,
     )
     .sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0));
 
@@ -141,13 +149,14 @@ export default function InventoryPage() {
                   item={{
                     id: item.id,
                     productName: item.product_name,
-                    category: item.product_category || undefined,
-                    imageUrl: item.image_url || undefined,
+                    category: item.product_category,
                     quantity: item.quantity,
                     unit: item.unit || undefined,
                     expiryDate: item.expiry_date || undefined,
+                    expiryStatus: item.expiry_status,
                     zoneType: item.zone_type as "refrigerator" | "freezer" | "pantry" | "other",
-                    status: item.status as "active" | "consumed" | "discarded" | "low",
+                    status: item.status,
+                    isLowStock: item.is_low_stock,
                   }}
                 />
               </Link>

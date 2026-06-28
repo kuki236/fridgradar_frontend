@@ -56,13 +56,11 @@ export function RecipeDetailSheet({ recipe, open, onOpenChange, onCooked }: Reci
     setCooking(true);
     setCookResult(null);
     try {
-      const to_consume = recipe.have_ingredients.map((ing) => ({
-        ...ing,
-        // ensure is_have/is_urgent are present (backend type expects them)
-        is_have: true,
-        is_urgent: ing.is_urgent ?? false,
-      }));
-      const res = await recipesApi.cook(activeHousehold.id, recipe.name, to_consume);
+      const res = await recipesApi.cook(
+        activeHousehold.id,
+        recipe.name,
+        recipe.have_ingredients,
+      );
       const n = res.consumed.length;
       setCookResult(t("recipes.cooked", { n, name: recipe.name }));
       onCooked?.();
