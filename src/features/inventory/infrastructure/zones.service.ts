@@ -15,6 +15,7 @@ export interface CreateZoneInput {
   name: string;
   type: string;
   sort_order?: number;
+  refrigerator_id?: string | null;
 }
 
 export const zoneApi = {

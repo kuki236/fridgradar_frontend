@@ -6,6 +6,7 @@ import { activityApi, type ActivityEntry } from "@/features/activity/infrastruct
 import { useHouseholdStore } from "@/features/household/infrastructure/households.store";
 import { NoHouseholdGuard } from "@/features/household/components/no-household-guard";
 import { useTranslate } from "@/lib/i18n-context";
+import { PageHeader } from "@/components/layout/page-header";
 
 const actionLabels: Record<string, string> = {
   created: "added",
@@ -32,7 +33,7 @@ export default function ActivityPage() {
     <NoHouseholdGuard>
     <div className="flex-1">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        <h1 className="text-xl font-semibold tracking-tight">{t("activity.title")}</h1>
+        <PageHeader title={t("activity.title")} />
 
         {loading ? (
           <div className="space-y-3">

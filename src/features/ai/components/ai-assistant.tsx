@@ -45,7 +45,7 @@ export function AIAssistant() {
   return (
     <>
       {open && (
-        <div className="fixed bottom-20 right-4 md:bottom-24 md:right-6 z-50 w-[calc(100vw-2rem)] max-w-sm rounded-2xl bg-card shadow-dropdown ring-1 ring-foreground/10 flex flex-col animate-in slide-in-from-bottom-4 fade-in duration-200">
+        <div className="fixed bottom-[5.25rem] right-4 md:bottom-24 md:right-6 z-50 w-[calc(100vw-2rem)] max-w-sm rounded-2xl bg-card shadow-dropdown ring-1 ring-foreground/10 flex flex-col animate-in slide-in-from-bottom-4 fade-in duration-200">
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <div className="flex items-center gap-2">
               <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -155,8 +155,13 @@ export function AIAssistant() {
 
       <button
         onClick={() => setOpen((v) => !v)}
+        // The FAB sits 1rem (16px) above the 64px bottom nav on mobile so it
+        // never collides with the last tab. On desktop it anchors to the
+        // corner as before. The audit flagged the previous `bottom-4` as
+        // physically overlapping the bottom-nav's last icon on phones.
         className={cn(
-          "fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 size-11 rounded-full flex items-center justify-center shadow-dropdown transition-all duration-200",
+          "fixed right-4 z-50 size-11 rounded-full flex items-center justify-center shadow-dropdown transition-all duration-200",
+          "bottom-[5rem] md:bottom-6",
           open
             ? "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground ring-1 ring-foreground/10"
             : "bg-primary text-primary-foreground hover:bg-primary/80",

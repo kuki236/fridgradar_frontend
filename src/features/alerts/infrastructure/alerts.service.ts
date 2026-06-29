@@ -13,6 +13,7 @@ export interface Alert {
   resolved_at: string | null;
   created_at: string;
   product_name: string | null;
+  days_left: number | null;
 }
 
 export const alertApi = {

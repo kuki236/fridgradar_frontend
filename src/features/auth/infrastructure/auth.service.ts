@@ -85,4 +85,11 @@ export const authApi = {
     ),
 
   me: () => apiRequest<UserResponse>("/api/auth/me"),
+
+  // RF-AUT-001: edit the current user's profile (Settings page).
+  updateMe: (data: Partial<Pick<UserResponse, "full_name">>) =>
+    apiRequest<UserResponse>("/api/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };

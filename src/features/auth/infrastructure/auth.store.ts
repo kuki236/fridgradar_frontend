@@ -12,6 +12,7 @@ interface AuthState {
   register: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  setUser: (user: UserResponse) => void;
 }
 
 // Listener instalado a nivel de módulo: si el token expira y la lib/api
@@ -94,4 +95,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
+
+  setUser: (user) => set({ user }),
 }));

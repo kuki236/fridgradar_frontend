@@ -12,6 +12,7 @@ import { FridgeSwitcher } from "@/features/inventory/components/fridge-switcher"
 import { FridgeView } from "@/features/inventory/components/fridge-view";
 import { AddItemDialog } from "@/features/inventory/components/add-item-dialog";
 import { NoHouseholdGuard } from "@/features/household/components/no-household-guard";
+import { PageHeader } from "@/components/layout/page-header";
 import { useTranslate } from "@/lib/i18n-context";
 import { cn } from "@/lib/utils";
 
@@ -69,36 +70,38 @@ export default function InventoryPage() {
     <NoHouseholdGuard>
     <div className="flex-1">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">{t("inventory.title")}</h1>
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-              <button
-                onClick={() => setViewMode("list")}
-                className={cn(
-                  "p-1.5 rounded-md transition-colors",
-                  viewMode === "list" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                )}
-                title={t("inventory.view_list")}
-                aria-label={t("inventory.view_list")}
-              >
-                <LayoutList className="size-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("visual")}
-                className={cn(
-                  "p-1.5 rounded-md transition-colors",
-                  viewMode === "visual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                )}
-                title={t("inventory.view_visual")}
-                aria-label={t("inventory.view_visual")}
-              >
-                <LayoutGrid className="size-4" />
-              </button>
+        <PageHeader
+          title={t("inventory.title")}
+          actions={
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex gap-1 rounded-lg bg-muted p-0.5">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    viewMode === "list" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title={t("inventory.view_list")}
+                  aria-label={t("inventory.view_list")}
+                >
+                  <LayoutList className="size-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("visual")}
+                  className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    viewMode === "visual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title={t("inventory.view_visual")}
+                  aria-label={t("inventory.view_visual")}
+                >
+                  <LayoutGrid className="size-4" />
+                </button>
+              </div>
+              <AddItemDialog onAdded={loadItems} />
             </div>
-            <AddItemDialog onAdded={loadItems} />
-          </div>
-        </div>
+          }
+        />
 
         <div className="flex gap-2">
           <div className="relative flex-1">

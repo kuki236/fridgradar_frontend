@@ -143,7 +143,23 @@ export function AddItemDialog({ onAdded }: AddItemDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : reset())}>
-      <DialogTrigger render={<Button variant="default"><Plus className="size-4" />{t("inventory.add_item")}</Button>} />
+      {/*
+        On mobile the dashboard header has very little horizontal room, so
+        the trigger collapses to a square `+` icon. The full label is
+        shown on >= sm screens where the user has more breathing room.
+      */}
+      <DialogTrigger
+        render={
+          <Button
+            variant="default"
+            aria-label={t("inventory.add_item")}
+            className="size-9 p-0 sm:size-auto sm:px-4 sm:py-2"
+          >
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">{t("inventory.add_item")}</span>
+          </Button>
+        }
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("inventory.add_item")}</DialogTitle>

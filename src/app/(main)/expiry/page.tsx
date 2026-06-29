@@ -8,6 +8,7 @@ import { expiryApi, type ExpiryResponse, type ExpiryItem, type ExpiryTimelineDay
 import { inventoryApi } from "@/features/inventory/infrastructure/inventory.service";
 import { NoHouseholdGuard } from "@/features/household/components/no-household-guard";
 import { useTranslate } from "@/lib/i18n-context";
+import { PageHeader } from "@/components/layout/page-header";
 import { cn } from "@/lib/utils";
 
 const BUCKET_KEYS = ["expired", "today", "this_week", "this_month", "later", "no_date"] as const;
@@ -190,27 +191,43 @@ export default function ExpiryPage() {
     <NoHouseholdGuard>
       <div className="flex-1">
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">{t("expiry.title")}</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">{t("expiry.subtitle")}</p>
-            </div>
-            <div className="flex gap-1 rounded-lg bg-muted p-0.5">
-              {[7, 14, 30].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setRangeDays(n)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
-                    rangeDays === n
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {n}d
-                </button>
-              ))}
-            </div>
+          <PageHeader
+            title={t("expiry.title")}
+            subtitle={t("expiry.subtitle")}
+            actions={
+              <div className="hidden sm:flex gap-1 rounded-lg bg-muted p-0.5">
+                {[7, 14, 30].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setRangeDays(n)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                      rangeDays === n
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {n}d
+                  </button>
+                ))}
+              </div>
+            }
+          />
+          <div className="sm:hidden flex gap-1 rounded-lg bg-muted p-0.5 w-fit">
+            {[7, 14, 30].map((n) => (
+              <button
+                key={n}
+                onClick={() => setRangeDays(n)}
+                className={cn(
+                  "px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+                  rangeDays === n
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {n}d
+              </button>
+            ))}
           </div>
 
           {loading ? (

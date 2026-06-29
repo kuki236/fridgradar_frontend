@@ -1,37 +1,35 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { UserPlus, User, Home, Loader2, LogOut, Palette, Globe, Trash2, Refrigerator as FridgeIcon, Box, Snowflake, Plus } from "lucide-react";
+import { UserPlus, User, Home, Loader2, LogOut, Palette, Globe, Mail, Clock, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuthStore } from "@/features/auth/infrastructure/auth.store";
+import { authApi } from "@/features/auth/infrastructure/auth.service";
 import { useHouseholdStore } from "@/features/household/infrastructure/households.store";
 import { householdApi, type Member } from "@/features/household/infrastructure/households.service";
-import { refrigeratorApi, type Refrigerator } from "@/features/inventory/infrastructure/refrigerators.service";
 import { InviteDialog } from "@/features/household/components/invite-dialog";
-import { ZonesSection } from "@/features/inventory/components/zones-section";
+import { StorageZonesTree } from "@/features/inventory/components/storage-zones-tree";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { EditableField } from "@/components/ui/editable-field";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useTranslate } from "@/lib/i18n-context";
 import { useTheme } from "@/lib/theme-provider";
 import { themePresets } from "@/lib/themes";
+import { PageHeader } from "@/components/layout/page-header";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { t, locale, setLocale } = useTranslate();
-  const { user, logout } = useAuthStore();
+  const { user, logout, setUser } = useAuthStore();
   const { theme, setTheme } = useTheme();
   const { activeHousehold, households, setActiveHousehold, loadHouseholds } = useHouseholdStore();
   const [members, setMembers] = useState<Member[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
-  const [fridges, setFridges] = useState<Refrigerator[]>([]);
-  const [fridgeDialogOpen, setFridgeDialogOpen] = useState(false);
-  const [newFridgeName, setNewFridgeName] = useState("");
-  const [newFridgeType, setNewFridgeType] = useState("refrigerator");
-  const [savingFridge, setSavingFridge] = useState(false);
-  const [deletingFridge, setDeletingFridge] = useState<string | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => { loadHouseholds(); }, []);
 
@@ -44,68 +42,50 @@ export default function SettingsPage() {
 
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
-  const loadFridges = useCallback(() => {
-    if (activeHousehold) {
-      refrigeratorApi.list(activeHousehold.id).then(setFridges).catch(() => {});
-    }
-  }, [activeHousehold]);
-
-  useEffect(() => { loadFridges(); }, [loadFridges]);
-
-  const handleAddFridge = async () => {
-    if (!activeHousehold || !newFridgeName.trim()) return;
-    setSavingFridge(true);
-    try {
-      await refrigeratorApi.create({
-        household_id: activeHousehold.id,
-        name: newFridgeName.trim(),
-        type: newFridgeType,
-      });
-      setFridgeDialogOpen(false);
-      setNewFridgeName("");
-      setNewFridgeType("refrigerator");
-      loadFridges();
-    } catch {
-      // error handled silently
-    }
-    setSavingFridge(false);
+  const handleSaveName = async (next: string) => {
+    const updated = await authApi.updateMe({ full_name: next });
+    setUser(updated);
+    toast.success(t("settings.profile_updated"));
   };
 
-  const handleDeleteFridge = async (id: string) => {
-    if (!confirm(t("settings.confirm_delete_fridge"))) return;
-    setDeletingFridge(id);
-    try {
-      await refrigeratorApi.delete(id);
-      setFridges((prev) => prev.filter((f) => f.id !== id));
-    } catch {
-      // error handled silently
-    }
-    setDeletingFridge(null);
+  const handleSaveHouseholdName = async (next: string) => {
+    if (!activeHousehold) return;
+    const updated = await householdApi.update(activeHousehold.id, { name: next });
+    toast.success(t("settings.household_updated"));
+    // refresh the active household in the store
+    setActiveHousehold({ ...activeHousehold, name: updated.name });
+    await loadHouseholds();
   };
 
-  const fridgeIcons: Record<string, typeof FridgeIcon> = {
-    refrigerator: FridgeIcon,
-    freezer: Snowflake,
-    pantry: Box,
-    other: Box,
+  const handleConfirmRemoveMember = async () => {
+    if (!activeHousehold || !memberToRemove) return;
+    setRemovingMember(memberToRemove.id);
+    try {
+      await householdApi.removeMember(activeHousehold.id, memberToRemove.id);
+      setMembers((prev) => prev.filter((m) => m.id !== memberToRemove.id));
+      setMemberToRemove(null);
+    } catch {
+      toast.error(t("settings.remove_error"));
+    } finally {
+      setRemovingMember(null);
+    }
   };
 
-  const handleRemoveMember = async (member: Member) => {
-    if (!activeHousehold || !confirm(t("settings.confirm_remove"))) return;
-    setRemovingMember(member.id);
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
     try {
-      await householdApi.removeMember(activeHousehold.id, member.id);
-      setMembers((prev) => prev.filter((m) => m.id !== member.id));
-    } catch {
-      alert(t("settings.remove_error"));
+      // Best-effort server-side revoke (RF-AUT-004). The store cleanup
+      // runs unconditionally so the user always gets back to /login.
+      await authApi.logout().catch(() => {});
+    } finally {
+      logout();
     }
-    setRemovingMember(null);
   };
 
   return (
     <div className="flex-1">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{t("settings.title")}</h1>
+        <PageHeader title={t("settings.title")} />
 
         {/* Appearance */}
         <section className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card overflow-hidden">
@@ -115,59 +95,62 @@ export default function SettingsPage() {
               {t("settings.appearance")}
             </h2>
           </div>
-          <div className="divide-y divide-border/50">
-            {/* Language */}
-            <div className="px-4 py-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Globe className="size-4 text-muted-foreground" />
-                  <span className="text-sm">{t("settings.language")}</span>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setLocale("en")}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                      locale === "en" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    EN
-                  </button>
-                  <button
-                    onClick={() => setLocale("es")}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                      locale === "es" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    ES
-                  </button>
-                </div>
-              </div>
-            </div>
 
-            {/* Theme */}
-            <div className="px-4 py-3">
-              <span className="text-sm block mb-2">{t("settings.theme")}</span>
-              <div className="flex gap-2 flex-wrap">
-                {Object.entries(themePresets).map(([key, preset]) => (
+          {/* Language — chip style consistent with the theme selector below */}
+          <div className="px-4 py-3 border-b border-border/50">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Globe className="size-4 text-muted-foreground" />
+                <span className="text-sm">{t("settings.language")}</span>
+              </div>
+              <div className="flex gap-1.5 shrink-0">
+                {(["en", "es"] as const).map((lng) => (
                   <button
-                    key={key}
-                    onClick={() => setTheme(key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      theme === key
-                        ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
-                        : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
+                    key={lng}
+                    onClick={() => setLocale(lng)}
+                    className={cn(
+                      "size-9 rounded-full text-xs font-semibold transition-all flex items-center justify-center",
+                      locale === lng
+                        ? "bg-primary text-primary-foreground ring-2 ring-primary/30 scale-105"
+                        : "bg-muted text-muted-foreground hover:bg-accent",
+                    )}
+                    aria-pressed={locale === lng}
+                    aria-label={lng.toUpperCase()}
                   >
-                    <span className="size-3 rounded-full" style={{ backgroundColor: preset.primary }} />
-                    {t(`settings.theme_presets.${key}` as any)}
+                    {lng.toUpperCase()}
                   </button>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* Theme — circular color swatches + label */}
+          <div className="px-4 py-3">
+            <span className="text-sm block mb-2">{t("settings.theme")}</span>
+            <div className="flex gap-2 flex-wrap">
+              {Object.entries(themePresets).map(([key, preset]) => (
+                <button
+                  key={key}
+                  onClick={() => setTheme(key)}
+                  className={cn(
+                    "flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                    theme === key
+                      ? "bg-primary/10 text-primary ring-2 ring-primary/30"
+                      : "bg-muted text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  <span
+                    className="size-5 rounded-full ring-2 ring-background"
+                    style={{ backgroundColor: preset.primary }}
+                  />
+                  {t(`settings.theme_presets.${key}` as any)}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
-        {/* Account */}
+        {/* Account — name editable, email read-only */}
         <section className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50">
             <h2 className="text-sm font-medium flex items-center gap-2">
@@ -176,24 +159,24 @@ export default function SettingsPage() {
             </h2>
           </div>
           <div className="divide-y divide-border/50">
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">{t("settings.name")}</span>
-              <span className="text-sm font-medium">{user?.full_name}</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">{t("settings.email")}</span>
-              <span className="text-sm text-muted-foreground">{user?.email}</span>
-            </div>
-            <div className="px-4 py-3">
-              <Button variant="destructive" size="sm" onClick={logout} className="w-full">
-                <LogOut className="size-3.5" />
-                {t("settings.logout")}
-              </Button>
-            </div>
+            <EditableField
+              label={t("settings.name")}
+              value={user?.full_name ?? ""}
+              onSave={handleSaveName}
+              icon={<User className="size-4 text-muted-foreground" />}
+            />
+            <EditableField
+              label={t("settings.email")}
+              value={user?.email ?? ""}
+              onSave={async () => { /* readOnly — never called */ }}
+              icon={<Mail className="size-4 text-muted-foreground" />}
+              readOnly
+              readOnlyHint={t("settings.email_readonly_hint")}
+            />
           </div>
         </section>
 
-        {/* Household */}
+        {/* Household — name + timezone editable, members list, invite */}
         <section className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
             <h2 className="text-sm font-medium flex items-center gap-2">
@@ -208,17 +191,20 @@ export default function SettingsPage() {
 
           {households.length > 1 && (
             <div className="px-4 py-3 border-b border-border/50">
-              <label className="text-xs text-muted-foreground block mb-1.5">{t("settings.switch_household")}</label>
+              <label className="text-xs text-muted-foreground block mb-1.5">
+                {t("settings.switch_household")}
+              </label>
               <div className="flex gap-2 flex-wrap">
                 {households.map((h) => (
                   <button
                     key={h.id}
                     onClick={() => setActiveHousehold(h)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
                       activeHousehold?.id === h.id
                         ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-accent"
-                    }`}
+                        : "bg-muted text-muted-foreground hover:bg-accent",
+                    )}
                   >
                     {h.name}
                   </button>
@@ -229,14 +215,24 @@ export default function SettingsPage() {
 
           {activeHousehold && (
             <div className="divide-y divide-border/50">
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted-foreground">{t("settings.name")}</span>
-                <span className="text-sm font-medium">{activeHousehold.name}</span>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm text-muted-foreground">{t("settings.timezone")}</span>
-                <span className="text-sm text-muted-foreground">{activeHousehold.timezone}</span>
-              </div>
+              <EditableField
+                label={t("settings.name")}
+                value={activeHousehold.name}
+                onSave={handleSaveHouseholdName}
+                icon={<Home className="size-4 text-muted-foreground" />}
+              />
+              <EditableField
+                label={t("settings.timezone")}
+                value={activeHousehold.timezone}
+                onSave={async (next) => {
+                  if (!activeHousehold) return;
+                  await householdApi.update(activeHousehold.id, { timezone: next });
+                  setActiveHousehold({ ...activeHousehold, timezone: next });
+                  await loadHouseholds();
+                  toast.success(t("settings.household_updated"));
+                }}
+                icon={<Clock className="size-4 text-muted-foreground" />}
+              />
             </div>
           )}
 
@@ -271,10 +267,11 @@ export default function SettingsPage() {
                       </span>
                       {activeHousehold && user && activeHousehold.owner_user_id === user.id && member.user_id !== user.id && (
                         <button
-                          onClick={() => handleRemoveMember(member)}
+                          onClick={() => setMemberToRemove(member)}
                           disabled={removingMember === member.id}
-                          className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                          className="text-muted-foreground hover:text-urgent hover:bg-urgent-bg/40 transition-colors p-1.5 rounded-md"
                           title={t("settings.remove_member")}
+                          aria-label={t("settings.remove_member")}
                         >
                           {removingMember === member.id ? (
                             <Loader2 className="size-3.5 animate-spin" />
@@ -291,99 +288,54 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Storage */}
-        <section className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
-            <h2 className="text-sm font-medium flex items-center gap-2">
-              <FridgeIcon className="size-4 text-muted-foreground" />
-              {t("settings.storage")}
-            </h2>
-            <Dialog open={fridgeDialogOpen} onOpenChange={setFridgeDialogOpen}>
-              <DialogTrigger render={<Button variant="outline" size="sm"><Plus className="size-3.5" />{t("settings.add_fridge")}</Button>} />
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("settings.add_fridge")}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fridge-name">{t("settings.fridge_name")}</Label>
-                    <Input
-                      id="fridge-name"
-                      value={newFridgeName}
-                      onChange={(e) => setNewFridgeName(e.target.value)}
-                      placeholder={t("settings.fridge_name")}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>{t("settings.fridge_type")}</Label>
-                    <Select value={newFridgeType} onValueChange={(v) => v && setNewFridgeType(v)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t("settings.fridge_type")}>
-                          {(value: string) => t(`type_${value}`)}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="refrigerator">{t("type_refrigerator")}</SelectItem>
-                        <SelectItem value="freezer">{t("type_freezer")}</SelectItem>
-                        <SelectItem value="pantry">{t("type_pantry")}</SelectItem>
-                        <SelectItem value="other">{t("type_other")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setFridgeDialogOpen(false)}>{t("inventory.cancel")}</Button>
-                  <Button onClick={handleAddFridge} disabled={savingFridge || !newFridgeName.trim()}>
-                    {savingFridge && <Loader2 className="size-4 animate-spin" />}
-                    {t("inventory.save")}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-          <div className="divide-y divide-border/50">
-            {fridges.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                {t("settings.storage")}...
-              </div>
-            ) : (
-              fridges.map((fridge) => {
-                const Icon = fridgeIcons[fridge.type] || Box;
-                return (
-                  <div key={fridge.id} className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="size-8 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
-                        <Icon className="size-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{fridge.name}</p>
-                        <p className="text-xs text-muted-foreground">{t(`type_${fridge.type}`)}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteFridge(fridge.id)}
-                      disabled={deletingFridge === fridge.id}
-                      className="text-muted-foreground hover:text-destructive transition-colors p-1 shrink-0 ml-2"
-                      title={t("settings.delete_fridge")}
-                    >
-                      {deletingFridge === fridge.id ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="size-3.5" />
-                      )}
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
+        {/* Storage + Zones — nested accordion (RF-INV-001, RF-INV-002) */}
+        <StorageZonesTree />
 
         <InviteDialog open={inviteOpen} onClose={() => { setInviteOpen(false); loadMembers(); }} />
 
-        <ZonesSection />
+        {/* Danger zone — isolated at the very bottom so it can't be hit
+            accidentally while configuring the household. */}
+        <section className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/50">
+            <h2 className="text-sm font-medium text-muted-foreground">{t("settings.account")}</h2>
+          </div>
+          <div className="px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">{t("settings.logout")}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t("settings.logout_confirm")}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLogoutOpen(true)}
+              className="text-urgent hover:bg-urgent-bg/40 hover:border-urgent/30 hover:text-urgent"
+            >
+              <LogOut className="size-3.5" />
+              {t("settings.logout")}
+            </Button>
+          </div>
+        </section>
       </div>
+
+      {/* Confirm dialogs */}
+      <ConfirmDialog
+        open={memberToRemove !== null}
+        onOpenChange={(o) => { if (!o) setMemberToRemove(null); }}
+        title={t("settings.confirm_delete_member_title")}
+        description={t("settings.confirm_delete_member_desc")}
+        confirmLabel={t("settings.remove_member")}
+        onConfirm={handleConfirmRemoveMember}
+      />
+
+      <ConfirmDialog
+        open={logoutOpen}
+        onOpenChange={setLogoutOpen}
+        title={t("settings.logout")}
+        description={t("settings.logout_confirm")}
+        confirmLabel={t("settings.logout")}
+        variant="destructive"
+        onConfirm={handleConfirmLogout}
+      />
     </div>
   );
 }

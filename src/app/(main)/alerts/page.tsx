@@ -8,6 +8,7 @@ import { NoHouseholdGuard } from "@/features/household/components/no-household-g
 import { useTranslate } from "@/lib/i18n-context";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
 
 const severityConfig: Record<string, { border: string; bg: string; dot: string; badge: string }> = {
   critical: { border: "border-l-urgent", bg: "bg-urgent-bg/15", dot: "bg-urgent", badge: "bg-urgent text-white" },
@@ -132,23 +133,25 @@ export default function AlertsPage() {
     <NoHouseholdGuard>
     <div className="flex-1">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">{t("alerts.title")}</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleScan}
-            disabled={scanning}
-            title={t("alerts.scan_now")}
-          >
-            {scanning ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Zap className="size-3.5" />
-            )}
-            {scanning ? t("alerts.scanning") : t("alerts.scan_now")}
-          </Button>
-        </div>
+        <PageHeader
+          title={t("alerts.title")}
+          actions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleScan}
+              disabled={scanning}
+              title={t("alerts.scan_now")}
+            >
+              {scanning ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Zap className="size-3.5" />
+              )}
+              {scanning ? t("alerts.scanning") : t("alerts.scan_now")}
+            </Button>
+          }
+        />
 
         {scanMsg && (
           <div className="text-xs text-muted-foreground bg-card ring-1 ring-foreground/5 rounded-lg px-3 py-2">

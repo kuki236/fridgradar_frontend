@@ -7,6 +7,7 @@ import { NoHouseholdGuard } from "@/features/household/components/no-household-g
 import { useTranslate } from "@/lib/i18n-context";
 import { recipesApi, type Recipe } from "@/features/recipes/infrastructure/recipes.service";
 import { RecipeDetailSheet } from "@/features/recipes/components/recipe-detail-sheet";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,19 +192,18 @@ export default function RecipesPage() {
     <NoHouseholdGuard>
       <div className="flex-1">
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <ChefHat className="size-5 text-primary" />
-              <h1 className="text-xl font-semibold tracking-tight">{t("recipes.title")}</h1>
-            </div>
-            <Button
-              variant={showFilters ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowFilters((v) => !v)}
-            >
-              <Filter className="size-3.5" /> {t("recipes.filters")}
-            </Button>
-          </div>
+          <PageHeader
+            title={t("recipes.title")}
+            actions={
+              <Button
+                variant={showFilters ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowFilters((v) => !v)}
+              >
+                <Filter className="size-3.5" /> {t("recipes.filters")}
+              </Button>
+            }
+          />
 
           <p className="text-sm text-muted-foreground">{t("recipes.from_your_food")}</p>
 

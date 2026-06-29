@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Check, X, Loader2, UserPlus, Inbox } from "lucide-react";
+import { Check, X, Loader2, UserPlus, Inbox } from "lucide-react";
 import { invitationsApi, type Invitation } from "@/features/household/infrastructure/invitations.service";
 import { useTranslate } from "@/lib/i18n-context";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function NotificationsPage() {
   const { t } = useTranslate();
@@ -43,10 +44,7 @@ export default function NotificationsPage() {
   return (
     <div className="flex-1">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-center gap-2">
-          <Bell className="size-5 text-muted-foreground" />
-          <h1 className="text-xl font-semibold tracking-tight">{t("notifications.title")}</h1>
-        </div>
+        <PageHeader title={t("notifications.title")} />
 
         <section className="rounded-xl bg-card ring-1 ring-foreground/5 shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50">
