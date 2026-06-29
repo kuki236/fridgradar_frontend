@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FridgeRadar — Frontend
 
-## Getting Started
+UI en **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind 4**, con TanStack Query para fetching, React Hook Form + Zod para formularios, y Zustand para estado local.
 
-First, run the development server:
+- App: <http://localhost:3000>
+- Por defecto consume la API en `http://localhost:8000`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Requisitos
+
+- Node.js 20+
+- npm 10+ (o pnpm/yarn/bun)
+- Backend de FridgeRadar corriendo en local (ver [../fridgeradar_backend/README.md](../fridgeradar_backend/README.md))
+
+## Setup
+
+```powershell
+cd fridgradar_frontend
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variables de entorno (opcional)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Por defecto el frontend habla contra `http://localhost:8000`. Si tu backend esta en otra URL o puerto, crea `.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-## Learn More
+> Solo hace falta esa variable. Tras el login, el `access_token` y `refresh_token` se guardan en `localStorage`.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Comando | Descripcion |
+|---|---|
+| `npm run dev` | Servidor de desarrollo en <http://localhost:3000> |
+| `npm run build` | Build de produccion |
+| `npm start` | Sirve el build de produccion |
+| `npm run lint` | Pasa ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Corre los tests de `tests/` (productos locales e iconos de categoria) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estructura
 
-## Deploy on Vercel
+```
+fridgradar_frontend/
+├── src/
+│   ├── app/                  # App Router de Next.js
+│   │   ├── (auth)/           # /login, /register
+│   │   └── (main)/           # dashboard, inventory, expiry, alerts, recipes, shopping, ...
+│   ├── components/           # layout + ui (shadcn-style)
+│   ├── features/             # auth, household, inventory, expiry, alerts, recipes, shopping, ai, activity
+│   ├── i18n/                 # cadenas en/es
+│   └── lib/                  # api, i18n, nav, theme, utils
+├── tests/                    # tests de utilidades
+├── next.config.ts
+├── tailwind (PostCSS)
+└── package.json
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Login de prueba
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tras correr `python scripts/reset_db.py` en el backend, podes entrar con:
+
+- `alice@example.com` / `pass1234`
+- `bob@example.com` / `pass1234`
+- `lbizarro@gmail.com` / `pass1234`
+
+O registrar uno nuevo en `/register`.
+
+## Notas sobre Next.js 16
+
+Este proyecto usa **Next.js 16.2**, que trae cambios incompatibles con versiones anteriores (App Router, convenciones de archivos, comportamiento de `next dev`/`next build`, etc.). Antes de tocar codigo del framework, consulta `node_modules/next/dist/docs/`.
